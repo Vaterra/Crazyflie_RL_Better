@@ -1,0 +1,77 @@
+import numpy as np
+from dataclasses import dataclass
+
+
+@dataclass
+class RewardConfig:
+    evader_goal_progress_weight: float = 1.0
+    evader_capture_escape_weight: float = 0.5
+    chaser_capture_progress_weight: float = 0.5
+
+    evader_goal_bonus: float = 100.0
+    evader_captured_penalty: float = -100.0
+    chaser_capture_bonus: float = 100.0
+    chaser_goal_fail_penalty: float = -100.0
+
+    evader_out_penalty: float = -50.0
+    chaser_out_bonus_against_evader: float = 20.0
+
+    chaser_out_penalty: float = -50.0
+    evader_bonus_against_chaser_out: float = 20.0
+
+
+def compute_evader_reward(
+    goal_dist: float,
+    prev_goal_dist: float | None,
+    capture_dist: float,
+    prev_capture_dist: float | None,
+    info: dict,
+    cfg: RewardConfig,
+) -> float:
+    reward = 0.0
+
+    if prev_goal_dist is not None:
+        reward += cfg.evader_goal_progress_weight * (prev_goal_dist - goal_dist)
+
+    if prev_capture_dist is not None:
+        reward += cfg.evader_capture_escape_weight * (capture_dist - prev_capture_dist)
+
+    if info["evader_reached_goal"]:
+        reward += cfg.evader_goal_bonus
+
+    if info["captured"]:
+        reward += cfg.evader_captured_penalty
+
+    if info["evader_out"]:
+        reward += cfg.evader_out_penalty
+
+    if info["chaser_out"]:
+        reward += cfg.evader_bonus_against_chaser_out
+
+    return float(reward)
+
+
+def compute_chaser_reward(
+    capture_dist: float,
+    prev_capture_dist: float | None,
+    info: dict,
+    cfg: RewardConfig,
+) -> float:
+    reward = 0.0
+
+    if prev_capture_dist is not None:
+        reward += cfg.chaser_capture_progress_weight * (prev_capture_dist - capture_dist)
+
+    if info["captured"]:
+        reward += cfg.chaser_capture_bonus
+
+    if info["evader_reached_goal"]:
+        reward += cfg.chaser_goal_fail_penalty
+
+    if info["evader_out"]:
+        reward += cfg.chaser_out_bonus_against_evader
+
+    if info["chaser_out"]:
+        reward += cfg.chaser_out_penalty
+
+    return float(reward)
