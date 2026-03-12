@@ -269,7 +269,7 @@ def quick_env_check():
 if __name__ == "__main__":
     reward_cfg = RewardConfig(
         evader_goal_progress_weight=1.0,
-        evader_capture_escape_weight=0.5,
+        evader_escape_weight=0.5,
         chaser_capture_progress_weight=0.5,
         evader_goal_bonus=100.0,
         evader_captured_penalty=-100.0,
@@ -279,6 +279,7 @@ if __name__ == "__main__":
         chaser_out_bonus_against_evader=20.0,
         chaser_out_penalty=-50.0,
         evader_bonus_against_chaser_out=20.0,
+        safe_rad=1.0,
     )
 
     AMSPB(
