@@ -5,7 +5,7 @@ from dataclasses import dataclass
 @dataclass
 class RewardConfig:
     evader_goal_progress_weight: float = 1.0
-    evader_capture_escape_weight: float = 0.5
+    evader_escape_weight: float = 0.5
     chaser_capture_progress_weight: float = 0.5
 
     evader_goal_bonus: float = 100.0
@@ -19,22 +19,25 @@ class RewardConfig:
     chaser_out_penalty: float = -50.0
     evader_bonus_against_chaser_out: float = 20.0
 
+    safe_rad: float = 1.0
+
 
 def compute_evader_reward(
     goal_dist: float,
     prev_goal_dist: float | None,
-    E_2_C_distance: float,
-    Prev_E_2_C_distance: float | None,
+    Evader_pos: float,
+    Chaser_pos: float,
     info: dict,
     cfg: RewardConfig,
 ) -> float:
     reward = 0.0
+    E_2_C_pos = np.linalg.norm(Evader_pos - Chaser_pos)
 
     if prev_goal_dist is not None:
         reward += cfg.evader_goal_progress_weight * (prev_goal_dist - goal_dist)
 
-    if Prev_E_2_C_distance is not None:
-        reward += cfg.evader_capture_escape_weight * (E_2_C_distance - Prev_E_2_C_distance)
+    if E_2_C_pos < cfg.safe_rad:
+        reward += cfg.evader_escape_weight * (E_2_C_pos)
 
     if info["evader_reached_goal"]:
         reward += cfg.evader_goal_bonus
