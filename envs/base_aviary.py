@@ -38,6 +38,8 @@ class base_aviary(BaseRLAviary):
         record: bool = False,
         obs: ObservationType = ObservationType.KIN,
         act: ActionType = ActionType.VEL,
+
+        # Environment parameters
         episode_len_sec: float = 30.0,
         capture_radius: float = 0.25,
         goal_radius: float = 0.35,
@@ -113,8 +115,8 @@ class base_aviary(BaseRLAviary):
             raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")
 
         self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
+            low=-1.0,
+            high=1.0,
             shape=(obs_dim,),
             dtype=np.float32,
         )
@@ -218,28 +220,28 @@ class base_aviary(BaseRLAviary):
         )
 
     def _get_agent_obs(self, agent: str) -> np.ndarray:
-        evader_pos = self._pos(0)
+        evader_pos = self._pos(0)*2/self.arena_xy
         evader_vel = self._vel(0)
-        chaser_pos = self._pos(1)
+        chaser_pos = self._pos(1)*2/self.arena_xy
         chaser_vel = self._vel(1)
         rel = chaser_pos - evader_pos
 
         if agent == self.AGENT_EVADER:
             return np.concatenate([
                 evader_pos,
-                evader_vel,
+                evader_vel/self.SPEED_LIMIT,
                 rel,
-                self.goal_pos,
+                self.goal_pos*2/self.arena_xy,
             ]).astype(np.float32)
 
         if agent == self.AGENT_CHASER:
             return np.concatenate([
                 chaser_pos,
-                chaser_vel,
+                chaser_vel/self.SPEED_LIMIT,
                 evader_pos,
-                evader_vel,
+                evader_vel/self.opponent_speed,
                 rel,
-                self.goal_pos,
+                self.goal_pos*2/self.arena_xy,
             ]).astype(np.float32)
 
         raise ValueError(f"Unknown agent={agent}")
@@ -305,7 +307,7 @@ class base_aviary(BaseRLAviary):
             or info["evader_reached_goal"]
             or info["evader_out"]
             or info["chaser_out"]
-        )
+        )  ## Maybe change the termination depending on which agent we are training
 
     def _computeTruncated(self):
         info = self._computeInfo()
@@ -323,8 +325,8 @@ class base_aviary(BaseRLAviary):
         reward_evader = compute_evader_reward(
             goal_dist=goal_dist,
             prev_goal_dist=self.prev_goal_dist,
-            capture_dist=capture_dist,
-            prev_capture_dist=self.prev_capture_dist,
+            Evader_pos=evader_pos,
+            Chaser_pos=chaser_pos,
             info=info,
             cfg=self.reward_config,
         )
