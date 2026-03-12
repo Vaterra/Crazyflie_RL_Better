@@ -34,6 +34,7 @@ def train_from(
     opponent_pool: list,
     training: TrainConfig,
     reward_config: RewardConfig,
+    seed_input: int,
 ):
     
     if agent_role not in ["evader", "chaser"]:
@@ -47,14 +48,14 @@ def train_from(
     env = build_vec_env(
         controlled_agent=controlled_agent,
         n_envs=training.n_envs,
-        seed=training.seed,
+        seed= seed_input,
         opponent_pool=opponent_pool,
         p_old=training.p_old,
     )
 
     #Tensorboard logging setup
     tb_log = os.path.join(training.tb_root, agent_role)
-    tb_name = f"{agent_role}_seed_{training.seed}"
+    tb_name = f"{agent_role}_seed_{seed_input}"
 
     if init_policy_path is None:
         model = PPO(
@@ -87,7 +88,7 @@ def train_from(
 
     #Saving
     run_stamp = timestamp()
-    save_name = f"{agent_role}_seed_{training.seed}_{run_stamp}"
+    save_name = f"{agent_role}_seed_{seed_input}_{run_stamp}"
     save_path = save_model(model, training.save_dir, save_name)
 
     env.close()
@@ -105,6 +106,9 @@ def AMSPB(
 
     random.seed(train_cfg.seed)
     np.random.seed(train_cfg.seed)
+
+    evader_seed = train_cfg.seed
+    chaser_seed = train_cfg.seed  + 1
 
     # -------------------------------------------------------------------------
     # Initial scripted pools
@@ -137,6 +141,7 @@ def AMSPB(
         opponent_pool=[entry.policy for entry in Pi_E],
         training=train_cfg,
         reward_config=reward_config,
+        seed=chaser_seed,
 
     )
 
@@ -158,6 +163,7 @@ def AMSPB(
         opponent_pool=[entry.policy for entry in Pi_P],
         training=train_cfg,
         reward_config=reward_config,
+        seed=evader_seed,
     )
 
     Pi_E.append(
@@ -184,6 +190,7 @@ def AMSPB(
             opponent_pool=[entry.policy for entry in Pi_P],
             training=train_cfg,
             reward_config=reward_config,
+            seed=evader_seed + 2*k,
         )
 
         Pi_E.append(
@@ -201,6 +208,7 @@ def AMSPB(
             opponent_pool=[entry.policy for entry in Pi_E],
             training=train_cfg,
             reward_config=reward_config,
+            seed=chaser_seed + 2*k-1,
         )
 
         Pi_P.append(

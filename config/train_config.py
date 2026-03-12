@@ -9,7 +9,7 @@ class TrainConfig:
     n_envs: int = 16
     total_timesteps: int = 100_000
     seed: int = 42
-    device: str = "cuda"
+    device: str = "cpu"
     verbose: int = 1
 
     # PPO parameters
