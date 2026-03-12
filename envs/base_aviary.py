@@ -99,9 +99,8 @@ class base_aviary(BaseRLAviary):
         self.SPEED_LIMIT = 1.0
 
         self.action_space = spaces.Box(
-            low=-1.0,
-            high=1.0,
-            shape=(4,),
+            low=np.full((4,), -1.0, dtype=np.float32),
+            high=np.full((4,), 1.0, dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -115,9 +114,8 @@ class base_aviary(BaseRLAviary):
             raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")
 
         self.observation_space = spaces.Box(
-            low=-1.0,
-            high=1.0,
-            shape=(obs_dim,),
+            low=np.full((obs_dim,), -1.0, dtype=np.float32),
+            high=np.full((obs_dim,), 1.0, dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -332,8 +330,7 @@ class base_aviary(BaseRLAviary):
         )
 
         reward_chaser = compute_chaser_reward(
-            capture_dist=capture_dist,
-            prev_capture_dist=self.prev_capture_dist,
+            E_2_C_distance=capture_dist,
             info=info,
             cfg=self.reward_config,
         )

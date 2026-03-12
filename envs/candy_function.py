@@ -56,15 +56,14 @@ def compute_evader_reward(
 
 def compute_chaser_reward(
     E_2_C_distance: float,
-    Prev_E_2_C_distance: float | None,
     info: dict,
     cfg: RewardConfig,
 ) -> float:
     reward = 0.0
 
-    if Prev_E_2_C_distance is not None:
-        reward += cfg.chaser_capture_progress_weight * (Prev_E_2_C_distance - E_2_C_distance)
-
+    if E_2_C_distance < cfg.safe_rad:
+        reward += cfg.chaser_capture_progress_weight * (cfg.safe_rad - E_2_C_distance)
+        
     if info["captured"]:
         reward += cfg.chaser_capture_bonus
 

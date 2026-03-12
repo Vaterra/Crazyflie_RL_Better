@@ -8,9 +8,11 @@ from stable_baselines3.common.env_checker import check_env
 from envs.base_aviary import base_aviary
 from envs.candy_function import RewardConfig
 
-from policy_wrapper import PolicyEntry, LazyPPOPolicy
-from Scripted_policies import ScriptedChaserPolicy, ScriptedEvaderPolicy
-from Vec_envs:builder import build_vec_env
+from policies.policy_wrapper import PolicyEntry, LazyPPOPolicy
+from policies.scripted_policies import ScriptedChaserPolicy, ScriptedEvaderPolicy
+from utils.vec_env_builder import build_vec_env
+from config.configs import EnvConfig
+from config.train_config import TrainConfig, timestamp
 
 
 # =============================================================================
@@ -30,14 +32,10 @@ def train_from(
     agent_role: str,                  # "evader" or "chaser"
     init_policy_path: str | None,
     opponent_pool: list,
-    p_old: float,
-    n_envs: int,
-    total_timesteps: int,
-    seed: int,
-    reward_config: RewardConfig | None = None,
-    save_dir: str = "./models",
-    device: str = "cpu",
+    training: TrainConfig,
+    reward_config: RewardConfig,
 ):
+    
     if agent_role not in ["evader", "chaser"]:
         raise ValueError(f"Unknown agent_role={agent_role}")
 
@@ -48,28 +46,26 @@ def train_from(
 
     env = build_vec_env(
         controlled_agent=controlled_agent,
-        n_envs=n_envs,
-        seed=seed,
+        n_envs=training.n_envs,
+        seed=training.seed,
         opponent_pool=opponent_pool,
-        p_old=p_old,
-        reward_config=reward_config,
-        gui=False,
-        draw_goal=False,
+        p_old=training.p_old,
     )
 
-    tb_log = "./tb_logs_evader_pybullet" if agent_role == "evader" else "./tb_logs_chaser_pybullet"
-    tb_name = f"{agent_role}_seed_{seed}_V_{Version}"
+    #Tensorboard logging setup
+    tb_log = os.path.join(training.tb_root, agent_role)
+    tb_name = f"{agent_role}_seed_{training.seed}"
 
     if init_policy_path is None:
         model = PPO(
             "MlpPolicy",
             env,
-            verbose=1,
-            learning_rate=3e-4,
-            n_steps=128,
-            batch_size=256,
-            gamma=0.99,
-            device=device,
+            verbose=training.verbose,
+            learning_rate=training.learning_rate,
+            n_steps=training.n_steps,
+            batch_size=training.batch_size,
+            gamma=training.gamma,
+            device=training.device,
             tensorboard_log=tb_log,
         )
         reset_num_timesteps = True
@@ -77,42 +73,38 @@ def train_from(
         model = PPO.load(
             init_policy_path,
             env=env,
-            device=device,
+            device=training.device,
         )
         model.tensorboard_log = tb_log
         reset_num_timesteps = False
 
     model.learn(
-        total_timesteps=total_timesteps,
+        total_timesteps=training.total_timesteps,
         tb_log_name=tb_name,
         reset_num_timesteps=reset_num_timesteps,
     )
 
-    save_name = f"{agent_role}_{tb_name}"
-    save_path = save_model(model, save_dir, save_name)
+
+    #Saving
+    run_stamp = timestamp()
+    save_name = f"{agent_role}_seed_{training.seed}_{run_stamp}"
+    save_path = save_model(model, training.save_dir, save_name)
 
     env.close()
     return save_path
-
 
 # =============================================================================
 # AMSPB
 # =============================================================================
 
 def AMSPB(
-    N: int = 4,
-    p_old: float = 0.5,
-    n_envs: int = 32,
-    timesteps_per_stage: int = 1_000_000,
-    seed: int = 42,
-    reward_config: RewardConfig | None = None,
-    save_dir: str = "./models",
-    device: str = "cpu",
-    Version: str = "version_1",
+    train_cfg: TrainConfig,
+    env_config: EnvConfig,
+    reward_config: RewardConfig,
 ):
-    save_dir += Version
-    random.seed(seed)
-    np.random.seed(seed)
+
+    random.seed(train_cfg.seed)
+    np.random.seed(train_cfg.seed)
 
     # -------------------------------------------------------------------------
     # Initial scripted pools
@@ -143,18 +135,14 @@ def AMSPB(
         agent_role="chaser",
         init_policy_path=None,
         opponent_pool=[entry.policy for entry in Pi_E],
-        p_old=p_old,
-        n_envs=n_envs,
-        total_timesteps=timesteps_per_stage,
-        seed=seed,
+        training=train_cfg,
         reward_config=reward_config,
-        save_dir=save_dir,
-        device=device,
+
     )
 
     Pi_P.append(
         PolicyEntry(
-            policy=LazyPPOPolicy(pi_P_0_path, device=device),
+            policy=LazyPPOPolicy(pi_P_0_path, device=train_cfg.device),
             name="pi_P_0",
             kind="learned",
         )
@@ -168,18 +156,13 @@ def AMSPB(
         agent_role="evader",
         init_policy_path=None,
         opponent_pool=[entry.policy for entry in Pi_P],
-        p_old=p_old,
-        n_envs=n_envs,
-        total_timesteps=timesteps_per_stage,
-        seed=seed + 1,
+        training=train_cfg,
         reward_config=reward_config,
-        save_dir=save_dir,
-        device=device,
     )
 
     Pi_E.append(
         PolicyEntry(
-            policy=LazyPPOPolicy(pi_E_0_path, device=device),
+            policy=LazyPPOPolicy(pi_E_0_path, device=train_cfg.device),
             name="pi_E_0",
             kind="learned",
         )
@@ -199,18 +182,13 @@ def AMSPB(
             agent_role="evader",
             init_policy_path=prev_evader_path,
             opponent_pool=[entry.policy for entry in Pi_P],
-            p_old=p_old,
-            n_envs=n_envs,
-            total_timesteps=timesteps_per_stage,
-            seed=seed + 10 * k,
+            training=train_cfg,
             reward_config=reward_config,
-            save_dir=save_dir,
-            device=device,
         )
 
         Pi_E.append(
             PolicyEntry(
-                policy=LazyPPOPolicy(pi_E_k_path, device=device),
+                policy=LazyPPOPolicy(pi_E_k_path, device=train_cfg.device),
                 name=f"pi_E_{k}",
                 kind="learned",
             )
@@ -221,18 +199,13 @@ def AMSPB(
             agent_role="chaser",
             init_policy_path=prev_chaser_path,
             opponent_pool=[entry.policy for entry in Pi_E],
-            p_old=p_old,
-            n_envs=n_envs,
-            total_timesteps=timesteps_per_stage,
-            seed=seed + 10 * k + 1,
+            training=train_cfg,
             reward_config=reward_config,
-            save_dir=save_dir,
-            device=device,
         )
 
         Pi_P.append(
             PolicyEntry(
-                policy=LazyPPOPolicy(pi_P_k_path, device=device),
+                policy=LazyPPOPolicy(pi_P_k_path, device=train_cfg.device),
                 name=f"pi_P_{k}",
                 kind="learned",
             )
@@ -243,53 +216,12 @@ def AMSPB(
 
     print("\nAMSPB training complete.")
     return Pi_E, Pi_P
-
-
-# =============================================================================
-# Optional quick environment check
-# =============================================================================
-
-def quick_env_check():
-    scripted_chaser = ScriptedChaserPolicy(speed=1.0)
-    env = base_aviary(
-        controlled_agent=base_aviary.AGENT_EVADER,
-        gui=False,
-        draw_goal=False,
-        reward_config=RewardConfig(),
-    )
-    env.set_opponent_policy(scripted_chaser)
-    check_env(env, warn=True)
-    env.close()
-
-
 # =============================================================================
 # Main
 # =============================================================================
 
 if __name__ == "__main__":
-    reward_cfg = RewardConfig(
-        evader_goal_progress_weight=1.0,
-        evader_escape_weight=0.5,
-        chaser_capture_progress_weight=0.5,
-        evader_goal_bonus=100.0,
-        evader_captured_penalty=-100.0,
-        chaser_capture_bonus=100.0,
-        chaser_goal_fail_penalty=-100.0,
-        evader_out_penalty=-50.0,
-        chaser_out_bonus_against_evader=20.0,
-        chaser_out_penalty=-50.0,
-        evader_bonus_against_chaser_out=20.0,
-        safe_rad=1.0,
-    )
-
-    AMSPB(
-        N=4,
-        p_old=0.5,
-        n_envs=16,
-        timesteps_per_stage=100_000,
-        seed=42,
-        reward_config=reward_cfg,
-        save_dir="./models",
-        device="cuda",   # switch to "cuda" after everything works reliably
-        Version= "/version_1",
-    )
+    reward_cfg = RewardConfig()
+    Settings = TrainConfig()
+    Env = EnvConfig
+    AMSPB(train_cfg=Settings, env_config=Env, reward_config=reward_cfg)
