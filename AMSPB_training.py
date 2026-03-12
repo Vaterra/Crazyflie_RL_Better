@@ -174,8 +174,8 @@ def AMSPB(
     # -------------------------------------------------------------------------
     # Adversarial cross-training
     # -------------------------------------------------------------------------
-    for k in range(1, N + 1):
-        print(f"\n========== AMSPB Stage {k}/{N} ==========\n")
+    for k in range(1, train_cfg.n + 1):
+        print(f"\n========== AMSPB Stage {k}/{train_cfg.n} ==========\n")
 
         print(f"Training evader pi_E_{k} from {prev_evader_path}")
         pi_E_k_path = train_from(
