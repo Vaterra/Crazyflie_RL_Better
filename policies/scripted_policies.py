@@ -39,19 +39,23 @@ class ScriptedChaserPolicy:
 
 
 class ScriptedEvaderPolicy:
-
-    def __init__(self, speed=1.0):
-
+    def __init__(self, speed=1.0, w_goal=0.7, w_away=0.3):
         self.speed = speed
+        self.w_goal = w_goal
+        self.w_away = w_away
 
     def predict(self, obs, deterministic=True):
-
         evader_pos = obs[0:3]
         rel = obs[6:9]
         goal = obs[9:12]
-
         chaser_pos = evader_pos + rel
 
-        action = flee_from_target(evader_pos, chaser_pos, goal)
-
+        action = flee_from_target(
+            evader_pos,
+            chaser_pos,
+            goal,
+            w_goal=self.w_goal,
+            w_away=self.w_away,
+            speed=self.speed,
+        )
         return action, None
