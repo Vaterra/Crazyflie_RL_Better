@@ -55,7 +55,7 @@ def train_from(
 
     #Tensorboard logging setup
     tb_log = os.path.join(training.tb_root, agent_role)
-    tb_name = f"{agent_role}_seed_{seed_input}"
+    tb_name = f"{agent_role}_{training.Version}_seed_{seed_input}"
 
     if init_policy_path is None:
         model = PPO(
@@ -141,7 +141,7 @@ def AMSPB(
         opponent_pool=[entry.policy for entry in Pi_E],
         training=train_cfg,
         reward_config=reward_config,
-        seed=chaser_seed,
+        seed_input=chaser_seed,
 
     )
 
@@ -163,7 +163,7 @@ def AMSPB(
         opponent_pool=[entry.policy for entry in Pi_P],
         training=train_cfg,
         reward_config=reward_config,
-        seed=evader_seed,
+        seed_input=evader_seed,
     )
 
     Pi_E.append(
@@ -190,7 +190,7 @@ def AMSPB(
             opponent_pool=[entry.policy for entry in Pi_P],
             training=train_cfg,
             reward_config=reward_config,
-            seed=evader_seed + 2*k,
+            seed_input=evader_seed + 2*k,
         )
 
         Pi_E.append(
@@ -208,7 +208,7 @@ def AMSPB(
             opponent_pool=[entry.policy for entry in Pi_E],
             training=train_cfg,
             reward_config=reward_config,
-            seed=chaser_seed + 2*k-1,
+            seed_input=chaser_seed + 2*k-1,
         )
 
         Pi_P.append(

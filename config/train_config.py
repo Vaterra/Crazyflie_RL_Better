@@ -7,7 +7,7 @@ def timestamp() -> str:
 @dataclass
 class TrainConfig:
     n_envs: int = 16
-    total_timesteps: int = 100_000
+    total_timesteps: int = 10_000
     seed: int = 42
     device: str = "cpu"
     verbose: int = 1
@@ -23,5 +23,5 @@ class TrainConfig:
     p_old: float = 0.5
     # Output directories
     save_dir: str = "./models/version_2"
-    Version: str = "version_2"
+    Version: str = "version_0"
     tb_root: str = "./tb_logs"
