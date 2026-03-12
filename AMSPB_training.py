@@ -54,8 +54,8 @@ def train_from(
     )
 
     #Tensorboard logging setup
-    tb_log = os.path.join(training.tb_root, agent_role)
-    tb_name = f"{agent_role}_{training.Version}_seed_{seed_input}"
+    tb_log = os.path.join(training.tb_root, agent_role, training.Version)
+    tb_name = f"{agent_role}_seed_{seed_input}"
 
     if init_policy_path is None:
         model = PPO(
