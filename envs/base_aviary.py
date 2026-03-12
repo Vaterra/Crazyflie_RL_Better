@@ -320,7 +320,7 @@ class base_aviary(BaseRLAviary):
         chaser_pos = self._pos(1)
 
         goal_dist = float(np.linalg.norm(self.goal_pos - evader_pos))
-        capture_dist = float(np.linalg.norm(chaser_pos - evader_pos))
+        capture_dist = info["distance"]
 
         reward_evader = compute_evader_reward(
             goal_dist=goal_dist,
