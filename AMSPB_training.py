@@ -187,7 +187,7 @@ def train_from(
     total_timesteps: int,
     seed: int,
     reward_config: RewardConfig | None = None,
-    save_dir: str = "./models",
+    save_dir: str = "./models,
     device: str = "cpu",
 ):
     if agent_role not in ["evader", "chaser"]:
@@ -260,7 +260,9 @@ def AMSPB(
     reward_config: RewardConfig | None = None,
     save_dir: str = "./models",
     device: str = "cpu",
+    Version: str = "version_1",
 ):
+    save_dir += Version
     random.seed(seed)
     np.random.seed(seed)
 
@@ -435,9 +437,10 @@ if __name__ == "__main__":
         N=4,
         p_old=0.5,
         n_envs=16,
-        timesteps_per_stage=1_00_000,
+        timesteps_per_stage=1_000_000,
         seed=42,
         reward_config=reward_cfg,
         save_dir="./models",
         device="cuda",   # switch to "cuda" after everything works reliably
+        Version=version_1,
     )

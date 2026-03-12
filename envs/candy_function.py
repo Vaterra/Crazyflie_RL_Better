@@ -23,8 +23,8 @@ class RewardConfig:
 def compute_evader_reward(
     goal_dist: float,
     prev_goal_dist: float | None,
-    capture_dist: float,
-    prev_capture_dist: float | None,
+    E_2_C_distance: float,
+    Prev_E_2_C_distance: float | None,
     info: dict,
     cfg: RewardConfig,
 ) -> float:
@@ -33,8 +33,8 @@ def compute_evader_reward(
     if prev_goal_dist is not None:
         reward += cfg.evader_goal_progress_weight * (prev_goal_dist - goal_dist)
 
-    if prev_capture_dist is not None:
-        reward += cfg.evader_capture_escape_weight * (capture_dist - prev_capture_dist)
+    if Prev_E_2_C_distance is not None:
+        reward += cfg.evader_capture_escape_weight * (E_2_C_distance - Prev_E_2_C_distance)
 
     if info["evader_reached_goal"]:
         reward += cfg.evader_goal_bonus
@@ -52,15 +52,15 @@ def compute_evader_reward(
 
 
 def compute_chaser_reward(
-    capture_dist: float,
-    prev_capture_dist: float | None,
+    E_2_C_distance: float,
+    Prev_E_2_C_distance: float | None,
     info: dict,
     cfg: RewardConfig,
 ) -> float:
     reward = 0.0
 
-    if prev_capture_dist is not None:
-        reward += cfg.chaser_capture_progress_weight * (prev_capture_dist - capture_dist)
+    if Prev_E_2_C_distance is not None:
+        reward += cfg.chaser_capture_progress_weight * (Prev_E_2_C_distance - E_2_C_distance)
 
     if info["captured"]:
         reward += cfg.chaser_capture_bonus
