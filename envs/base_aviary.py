@@ -83,6 +83,8 @@ class base_aviary(BaseRLAviary):
             base_ray_dim = len(self.ray_sensor.local_dirs)
             self.ray_obs_dim = base_ray_dim * 2 if self.ray_include_hits else base_ray_dim
 
+        self.ray_visualize = False
+        self.draw_goal = False
         if gui:
             self.draw_goal = True
             if self.ray_sensor is not None:
@@ -211,11 +213,12 @@ class base_aviary(BaseRLAviary):
 
     def _create_arena_walls(self):
         # Remove previous walls if they exist
-        for wid in getattr(self, "wall_ids", []):
-            try:
-                p.removeBody(wid, physicsClientId=self.CLIENT)
-            except Exception:
-                pass
+        if self.ray_visualize:
+            for wid in getattr(self, "wall_ids", []):
+                try:
+                    p.removeBody(wid, physicsClientId=self.CLIENT)
+                except Exception:
+                    pass
         self.wall_ids = []
 
         wall_thickness = 0.02
@@ -428,27 +431,25 @@ class base_aviary(BaseRLAviary):
         goal_dist = float(np.linalg.norm(self.goal_pos - evader_pos))
         capture_dist = info["distance"]
 
-        reward_evader = compute_evader_reward(
-            goal_dist=goal_dist,
-            prev_goal_dist=self.prev_goal_dist,
-            Evader_pos=evader_pos,
-            Chaser_pos=chaser_pos,
-            info=info,
-            cfg=self.reward_config,
-        )
-
-        reward_chaser = compute_chaser_reward(
-            E_2_C_distance=capture_dist,
-            info=info,
-            cfg=self.reward_config,
-        )
-
         self.prev_goal_dist = goal_dist
         self.prev_capture_dist = capture_dist
 
         if self.controlled_agent == self.AGENT_EVADER:
+            reward_evader = compute_evader_reward(
+                goal_dist=goal_dist,
+                prev_goal_dist=self.prev_goal_dist,
+                Evader_pos=evader_pos,
+                Chaser_pos=chaser_pos,
+                info=info,
+                cfg=self.reward_config,
+            )
             return reward_evader
         elif self.controlled_agent == self.AGENT_CHASER:
+            reward_chaser = compute_chaser_reward(
+                E_2_C_distance=capture_dist,
+                info=info,
+                cfg=self.reward_config,
+            )
             return reward_chaser
 
         raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")

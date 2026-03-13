@@ -6,8 +6,8 @@ def timestamp() -> str:
 
 @dataclass
 class TrainConfig:
-    n_envs: int = 16
-    total_timesteps: int = 10_000
+    n_envs: int = 8
+    total_timesteps: int = 100_000
     seed: int = 42
     device: str = "cuda"
     verbose: int = 1
@@ -19,9 +19,9 @@ class TrainConfig:
     gamma: float = 0.99
 
     # AMSPB parameters
-    N: int = 4
+    N: int = 1
     p_old: float = 0.5
     # Output directories
-    Version: str = "version_2"
+    Version: str = "version_4"
     save_dir: str = "./models/"+Version
     tb_root: str = "./tb_logs"

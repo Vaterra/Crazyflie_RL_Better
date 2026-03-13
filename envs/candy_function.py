@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 @dataclass
 class RewardConfig:
-    evader_goal_progress_weight: float = 1.0
+    evader_goal_progress_weight: float = 10.0
     evader_escape_weight: float = 0.5
-    chaser_capture_progress_weight: float = 0.5
+    chaser_capture_progress_weight: float = 5.0
 
     evader_goal_bonus: float = 100.0
     evader_captured_penalty: float = -100.0

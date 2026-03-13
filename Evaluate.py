@@ -15,8 +15,8 @@ from AMSPB_training import ScriptedChaserPolicy, ScriptedEvaderPolicy
 # Change these to your actual final saved models
 # ============================================================================
 
-FINAL_EVADER_MODEL = "./models/version_2/evader_seed_50_2026-03-13_11-51"
-FINAL_CHASER_MODEL = "./models/version_2/chaser_seed_50_2026-03-13_11-51"
+FINAL_EVADER_MODEL = "./models/version_4/evader_seed_42_2026-03-13_13_06"
+FINAL_CHASER_MODEL = "./models/version_4/chaser_seed_43_2026-03-13_13-08"
 
 N_EPISODES = 10
 MAX_STEPS = 2000

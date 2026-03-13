@@ -180,49 +180,53 @@ def AMSPB(
     # -------------------------------------------------------------------------
     # Adversarial cross-training
     # -------------------------------------------------------------------------
-    for k in range(1, train_cfg.N + 1):
-        print(f"\n========== AMSPB Stage {k}/{train_cfg.N} ==========\n")
+    if train_cfg.N > 0:
+        print("\n=== Starting AMSPB Training ===")
+        for k in range(1, train_cfg.N + 1):
+            print(f"\n========== AMSPB Stage {k}/{train_cfg.N} ==========\n")
 
-        print(f"Training evader pi_E_{k} from {prev_evader_path}")
-        pi_E_k_path = train_from(
-            agent_role="evader",
-            init_policy_path=prev_evader_path,
-            opponent_pool=[entry.policy for entry in Pi_P],
-            training=train_cfg,
-            reward_config=reward_config,
-            seed_input=evader_seed + 2*k,
-        )
-
-        Pi_E.append(
-            PolicyEntry(
-                policy=LazyPPOPolicy(pi_E_k_path, device=train_cfg.device),
-                name=f"pi_E_{k}",
-                kind="learned",
+            print(f"Training evader pi_E_{k} from {prev_evader_path}")
+            pi_E_k_path = train_from(
+                agent_role="evader",
+                init_policy_path=prev_evader_path,
+                opponent_pool=[entry.policy for entry in Pi_P],
+                training=train_cfg,
+                reward_config=reward_config,
+                seed_input=evader_seed + 2*k,
             )
-        )
 
-        print(f"Training chaser pi_P_{k} from {prev_chaser_path}")
-        pi_P_k_path = train_from(
-            agent_role="chaser",
-            init_policy_path=prev_chaser_path,
-            opponent_pool=[entry.policy for entry in Pi_E],
-            training=train_cfg,
-            reward_config=reward_config,
-            seed_input=chaser_seed + 2*k-1,
-        )
-
-        Pi_P.append(
-            PolicyEntry(
-                policy=LazyPPOPolicy(pi_P_k_path, device=train_cfg.device),
-                name=f"pi_P_{k}",
-                kind="learned",
+            Pi_E.append(
+                PolicyEntry(
+                    policy=LazyPPOPolicy(pi_E_k_path, device=train_cfg.device),
+                    name=f"pi_E_{k}",
+                    kind="learned",
+                )
             )
-        )
 
-        prev_evader_path = pi_E_k_path
-        prev_chaser_path = pi_P_k_path
+            print(f"Training chaser pi_P_{k} from {prev_chaser_path}")
+            pi_P_k_path = train_from(
+                agent_role="chaser",
+                init_policy_path=prev_chaser_path,
+                opponent_pool=[entry.policy for entry in Pi_E],
+                training=train_cfg,
+                reward_config=reward_config,
+                seed_input=chaser_seed + 2*k-1,
+            )
 
-    print("\nAMSPB training complete.")
+            Pi_P.append(
+                PolicyEntry(
+                    policy=LazyPPOPolicy(pi_P_k_path, device=train_cfg.device),
+                    name=f"pi_P_{k}",
+                    kind="learned",
+                )
+            )
+
+            prev_evader_path = pi_E_k_path
+            prev_chaser_path = pi_P_k_path
+
+        print("\nAMSPB training complete.")
+    else: 
+        print("\nAMSPB training complete. (No adversarial stages, N=0)")
     return Pi_E, Pi_P
 # =============================================================================
 # Main

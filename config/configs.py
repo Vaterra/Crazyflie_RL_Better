@@ -16,14 +16,14 @@ class EnvConfig:
     drone_model: DroneModel = DroneModel.CF2X
     physics: Physics = Physics.PYB
     pyb_freq: int = 240
-    ctrl_freq: int = 60
+    ctrl_freq: int = 30
     gui: bool = False
     record: bool = False
     obs: ObservationType = ObservationType.KIN
     act: ActionType = ActionType.VEL
 
     # Environment parameters
-    episode_len_sec: float = 30.0
+    episode_len_sec: float = 15.0
     capture_radius: float = 0.25
     goal_radius: float = 0.35
     arena_xy: float = 3.0
