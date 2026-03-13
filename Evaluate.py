@@ -16,8 +16,8 @@ from AMSPB_training import ScriptedChaserPolicy, ScriptedEvaderPolicy
 # Change these to your actual final saved models
 # ============================================================================
 
-FINAL_EVADER_MODEL = "./models/version_2/evader_seed_42_2026-03-12_16-22"
-FINAL_CHASER_MODEL = "./models/version_2/chaser_seed_42_2026-03-12_16-24"
+FINAL_EVADER_MODEL = "./models/version_0/evader_seed_50_2026-03-12_16-45"
+FINAL_CHASER_MODEL = "./models/version_0/chaser_seed_50_2026-03-12_16-46"
 
 N_EPISODES = 10
 MAX_STEPS = 2000
@@ -152,9 +152,8 @@ def run_evaluation(
         chaser_return = 0.0
 
         while not done and ep_len < max_steps:
-            # Save previous distances BEFORE env.step()
-            prev_goal_dist = env.prev_goal_dist
-            prev_capture_dist = env.prev_capture_dist
+            # Save reward inputs exactly like env._computeReward() needs them
+            prev_goal_distance = env.prev_goal_dist
 
             action, _ = learner.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
@@ -162,22 +161,24 @@ def run_evaluation(
             ep_reward += float(reward)
             ep_len += 1
 
-            # Reconstruct both rewards from info for logging
+            # Post-step state, matching env._computeReward()
+            evader_pos = env._pos(0)
+            chaser_pos = env._pos(1)
+
             goal_dist = float(info["goal_distance"])
             capture_dist = float(info["distance"])
 
             evader_step_reward = compute_evader_reward(
                 goal_dist=goal_dist,
-                prev_goal_dist=prev_goal_dist,
-                capture_dist=capture_dist,
-                prev_capture_dist=prev_capture_dist,
+                prev_goal_dist=prev_goal_distance,
+                Evader_pos=evader_pos,
+                Chaser_pos=chaser_pos,
                 info=info,
                 cfg=env.reward_config,
             )
 
             chaser_step_reward = compute_chaser_reward(
-                capture_dist=capture_dist,
-                prev_capture_dist=prev_capture_dist,
+                E_2_C_distance=capture_dist,
                 info=info,
                 cfg=env.reward_config,
             )
@@ -312,24 +313,16 @@ def evaluate_final_models_head_to_head(
     )
 
 
+    def _pos(self, drone_id: int) -> np.ndarray:
+        return self._getDroneStateVector(drone_id)[0:3].copy()
+
+
 # ============================================================================
 # Main
 # ============================================================================
 
 if __name__ == "__main__":
-    reward_cfg = RewardConfig(
-        evader_goal_progress_weight=1.0,
-        evader_capture_escape_weight=0.5,
-        chaser_capture_progress_weight=0.5,
-        evader_goal_bonus=100.0,
-        evader_captured_penalty=-100.0,
-        chaser_capture_bonus=100.0,
-        chaser_goal_fail_penalty=-100.0,
-        evader_out_penalty=-50.0,
-        chaser_out_bonus_against_evader=20.0,
-        chaser_out_penalty=-50.0,
-        evader_bonus_against_chaser_out=20.0,
-    )
+    reward_cfg = RewardConfig()
 
     # ------------------------------------------------------------------
     # Pick ONE of these
