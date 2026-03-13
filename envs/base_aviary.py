@@ -4,10 +4,12 @@ import pybullet as p
 from gymnasium import spaces
 
 from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
-from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType
+from gym_pybullet_drones.utils.enums import ActionType
 
-from .candy_function import RewardConfig, compute_evader_reward, compute_chaser_reward
+from .candy_function import compute_evader_reward, compute_chaser_reward
+from config.configs import EnvConfig
 from utils.Raycast import RaySensor
+
 
 class base_aviary(BaseRLAviary):
     """
@@ -30,57 +32,32 @@ class base_aviary(BaseRLAviary):
     def __init__(
         self,
         controlled_agent: str,
-        drone_model: DroneModel = DroneModel.CF2X,
-        physics: Physics = Physics.PYB,
-        pyb_freq: int = 240,
-        ctrl_freq: int = 60,
+        config: EnvConfig | None = None,
         gui: bool = False,
-        record: bool = False,
-        obs: ObservationType = ObservationType.KIN,
-        act: ActionType = ActionType.VEL,
-
-        # Environment parameters
-        episode_len_sec: float = 30.0,
-        capture_radius: float = 0.25,
-        goal_radius: float = 0.35,
-        arena_xy: float = 3.0,
-        arena_z_min: float = 0.1,
-        arena_z_max: float = 3.0,
-        opponent_speed: float = 1.0,
-        draw_goal: bool = False,
-        reward_config: RewardConfig | None = None,
-
-        # Ray sensor parameters
-        use_ray_sensor: bool = True,
-        ray_num_rays: int = 4,
-        ray_max_range: float = 5.0,
-        ray_use_3d: bool = False,
-        ray_z_levels: int=[0.0],
-        ray_include_hits: bool = True,
-        ray_visualize: bool = True,
     ):
         self.controlled_agent = controlled_agent
+        self.config = config or EnvConfig()
 
-        self.capture_radius = capture_radius
-        self.goal_radius = goal_radius
-        self.arena_xy = arena_xy
-        self.arena_z_min = arena_z_min
-        self.arena_z_max = arena_z_max
-        self.opponent_speed = opponent_speed
+        self.capture_radius = self.config.capture_radius
+        self.goal_radius = self.config.goal_radius
+        self.arena_xy = self.config.arena_xy
+        self.arena_z_min = self.config.arena_z_min
+        self.arena_z_max = self.config.arena_z_max
+        self.opponent_speed = self.config.opponent_speed
+        self.SPEED_LIMIT = self.config.speed_limit
 
-        self.EPISODE_LEN_SEC = episode_len_sec
+        self.EPISODE_LEN_SEC = self.config.episode_len_sec
 
         self.prev_goal_dist = None
         self.prev_capture_dist = None
 
-        self.draw_goal = draw_goal
         self.goal_vis_id = None
 
         self.opponent_policy = None
         self.opponent_pool = None
         self.p_old = None
 
-        self.reward_config = reward_config if reward_config is not None else RewardConfig()
+        self.reward_config = self.config.reward_config
 
         self.termination_stats = {
             "goal": 0,
@@ -89,39 +66,42 @@ class base_aviary(BaseRLAviary):
             "chaser_out": 0,
             "timeout": 0,
         }
-        self.use_ray_sensor = use_ray_sensor
-        self.ray_include_hits = ray_include_hits
-        self.ray_visualize = ray_visualize
+
+        self.use_ray_sensor = self.config.use_ray_sensor
+        self.ray_include_hits = self.config.ray_include_hits
 
         self.ray_sensor = None
         self.ray_obs_dim = 0
 
         if self.use_ray_sensor:
             self.ray_sensor = RaySensor(
-                num_rays=ray_num_rays,
-                max_range=ray_max_range,
-                use_3d=ray_use_3d,
-                z_levels=ray_z_levels,
+                num_rays=self.config.ray_num_rays,
+                max_range=self.config.ray_max_range,
+                use_3d=self.config.ray_use_3d,
+                z_levels=self.config.ray_z_levels,
             )
             base_ray_dim = len(self.ray_sensor.local_dirs)
             self.ray_obs_dim = base_ray_dim * 2 if self.ray_include_hits else base_ray_dim
 
+        if gui:
+            self.draw_goal = True
+            if self.ray_sensor is not None:
+                self.ray_visualize = True
+            
         super().__init__(
-            drone_model=drone_model,
+            drone_model=self.config.drone_model,
             num_drones=2,
-            physics=physics,
-            pyb_freq=pyb_freq,
-            ctrl_freq=ctrl_freq,
+            physics=self.config.physics,
+            pyb_freq=self.config.pyb_freq,
+            ctrl_freq=self.config.ctrl_freq,
             gui=gui,
-            record=record,
-            obs=obs,
-            act=act,
+            record=self.config.record,
+            obs=self.config.obs,
+            act=self.config.act,
         )
 
-        if act != ActionType.VEL:
+        if self.config.act != ActionType.VEL:
             raise ValueError("This environment currently assumes ActionType.VEL")
-
-        self.SPEED_LIMIT = 1.0
 
         self.action_space = spaces.Box(
             low=np.full((4,), -1.0, dtype=np.float32),
@@ -130,10 +110,8 @@ class base_aviary(BaseRLAviary):
         )
 
         if self.controlled_agent == self.AGENT_EVADER:
-            # evader_pos(3), evader_vel(3), rel(3), goal(3)
             obs_dim = 12 + self.ray_obs_dim
         elif self.controlled_agent == self.AGENT_CHASER:
-            # chaser_pos(3), chaser_vel(3), evader_pos(3), evader_vel(3), rel(3), goal(3)
             obs_dim = 18 + self.ray_obs_dim
         else:
             raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")
@@ -143,6 +121,8 @@ class base_aviary(BaseRLAviary):
             high=np.full((obs_dim,), 1.0, dtype=np.float32),
             dtype=np.float32,
         )
+
+    # rest of your class stays the same
 
     # ---------------------------------------------------------------------
     # Opponent injection

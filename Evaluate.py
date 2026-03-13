@@ -10,14 +10,13 @@ from envs.candy_function import (
 )
 from AMSPB_training import ScriptedChaserPolicy, ScriptedEvaderPolicy
 
-
 # ============================================================================
 # Default model paths
 # Change these to your actual final saved models
 # ============================================================================
 
-FINAL_EVADER_MODEL = "./models/version_1/evader_seed_50_2026-03-13_11-30"
-FINAL_CHASER_MODEL = "./models/version_1/chaser_seed_50_2026-03-13_11-30"
+FINAL_EVADER_MODEL = "./models/version_2/evader_seed_50_2026-03-13_11-51"
+FINAL_CHASER_MODEL = "./models/version_2/chaser_seed_50_2026-03-13_11-51"
 
 N_EPISODES = 10
 MAX_STEPS = 2000
@@ -94,7 +93,7 @@ def run_evaluation(
     record: bool = False,
     seed_offset: int = 0,
     reward_config: RewardConfig | None = None,
-    device: str = "cpu",
+    device: str = "cuda",
 ):
     """
     Evaluate one learned policy in base_aviary against a supplied opponent policy.
@@ -112,13 +111,11 @@ def run_evaluation(
         base_aviary.AGENT_EVADER if role == "evader"
         else base_aviary.AGENT_CHASER
     )
+    
 
     env = base_aviary(
         controlled_agent=controlled_agent,
-        gui=gui,
-        record=record,
-        draw_goal=gui,
-        reward_config=reward_config if reward_config is not None else RewardConfig(),
+        gui = True,
     )
     env.set_opponent_policy(opponent_policy)
 
