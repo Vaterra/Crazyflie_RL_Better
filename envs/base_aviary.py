@@ -7,7 +7,7 @@ from gym_pybullet_drones.envs.BaseRLAviary import BaseRLAviary
 from gym_pybullet_drones.utils.enums import DroneModel, Physics, ActionType, ObservationType
 
 from .candy_function import RewardConfig, compute_evader_reward, compute_chaser_reward
-
+from utils.Raycast import RaySensor
 
 class base_aviary(BaseRLAviary):
     """
@@ -49,6 +49,15 @@ class base_aviary(BaseRLAviary):
         opponent_speed: float = 1.0,
         draw_goal: bool = False,
         reward_config: RewardConfig | None = None,
+
+        # Ray sensor parameters
+        use_ray_sensor: bool = True,
+        ray_num_rays: int = 4,
+        ray_max_range: float = 5.0,
+        ray_use_3d: bool = False,
+        ray_z_levels: int=[0.0],
+        ray_include_hits: bool = True,
+        ray_visualize: bool = True,
     ):
         self.controlled_agent = controlled_agent
 
@@ -80,6 +89,22 @@ class base_aviary(BaseRLAviary):
             "chaser_out": 0,
             "timeout": 0,
         }
+        self.use_ray_sensor = use_ray_sensor
+        self.ray_include_hits = ray_include_hits
+        self.ray_visualize = ray_visualize
+
+        self.ray_sensor = None
+        self.ray_obs_dim = 0
+
+        if self.use_ray_sensor:
+            self.ray_sensor = RaySensor(
+                num_rays=ray_num_rays,
+                max_range=ray_max_range,
+                use_3d=ray_use_3d,
+                z_levels=ray_z_levels,
+            )
+            base_ray_dim = len(self.ray_sensor.local_dirs)
+            self.ray_obs_dim = base_ray_dim * 2 if self.ray_include_hits else base_ray_dim
 
         super().__init__(
             drone_model=drone_model,
@@ -106,10 +131,10 @@ class base_aviary(BaseRLAviary):
 
         if self.controlled_agent == self.AGENT_EVADER:
             # evader_pos(3), evader_vel(3), rel(3), goal(3)
-            obs_dim = 12
+            obs_dim = 12 + self.ray_obs_dim
         elif self.controlled_agent == self.AGENT_CHASER:
             # chaser_pos(3), chaser_vel(3), evader_pos(3), evader_vel(3), rel(3), goal(3)
-            obs_dim = 18
+            obs_dim = 18 + self.ray_obs_dim
         else:
             raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")
 
@@ -282,6 +307,26 @@ class base_aviary(BaseRLAviary):
         )
         return body_id
 
+    def _get_ray_obs(self, drone_index: int) -> np.ndarray:
+        if not self.use_ray_sensor or self.ray_sensor is None:
+            return np.array([], dtype=np.float32)
+
+        body_id = self.DRONE_IDS[drone_index]
+
+        ray_obs = self.ray_sensor.get_observation(
+            drone_id=body_id,
+            client_id=self.CLIENT,
+            visualize=self.ray_visualize,
+            ignore_body_ids={body_id},
+            return_hits=self.ray_include_hits,
+        ).astype(np.float32)
+
+        return ray_obs
+
+        # Only keep normalized distances
+        n = len(self.ray_sensor.local_dirs)
+        return ray_obs[:n]
+
     def _pos(self, drone_id: int) -> np.ndarray:
         return self._getDroneStateVector(drone_id)[0:3].copy()
 
@@ -304,14 +349,17 @@ class base_aviary(BaseRLAviary):
         rel = chaser_pos - evader_pos
 
         if agent == self.AGENT_EVADER:
+            ray_obs = self._get_ray_obs(0)
             return np.concatenate([
                 evader_pos,
                 evader_vel/self.SPEED_LIMIT,
                 rel,
                 self.goal_pos*2/self.arena_xy,
+                ray_obs,
             ]).astype(np.float32)
 
         if agent == self.AGENT_CHASER:
+            ray_obs = self._get_ray_obs(1)
             return np.concatenate([
                 chaser_pos,
                 chaser_vel/self.SPEED_LIMIT,
@@ -319,6 +367,7 @@ class base_aviary(BaseRLAviary):
                 evader_vel/self.opponent_speed,
                 rel,
                 self.goal_pos*2/self.arena_xy,
+                ray_obs,
             ]).astype(np.float32)
 
         raise ValueError(f"Unknown agent={agent}")

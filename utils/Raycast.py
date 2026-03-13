@@ -7,7 +7,6 @@ class RaySensor:
         self.max_range = max_range
         self.use_3d = use_3d
 
-        # For 3D sensing, cast rings at multiple elevations.
         if z_levels is None:
             z_levels = [-0.3, 0.0, 0.3] if use_3d else [0.0]
         self.z_levels = z_levels
@@ -22,19 +21,31 @@ class RaySensor:
                 d = np.array([np.cos(yaw), np.sin(yaw), z], dtype=np.float32)
                 d = d / np.linalg.norm(d)
                 dirs.append(d)
-        return np.array(dirs, dtype=np.float32)  # shape: (K, 3)
+        return np.array(dirs, dtype=np.float32)
 
-    def get_observation(self, drone_id, client_id=0, visualize=False):
+    def get_observation(
+        self,
+        drone_id,
+        client_id=0,
+        visualize=False,
+        ignore_body_ids=None,
+        return_hits=True,
+    ):
+        if ignore_body_ids is None:
+            ignore_body_ids = set()
+        else:
+            ignore_body_ids = set(ignore_body_ids)
+
         pos, orn = p.getBasePositionAndOrientation(drone_id, physicsClientId=client_id)
         pos = np.array(pos, dtype=np.float32)
 
-        # Rotation matrix from drone local frame -> world frame
-        rot = np.array(p.getMatrixFromQuaternion(orn, physicsClientId=client_id),
-                       dtype=np.float32).reshape(3, 3)
+        rot = np.array(
+            p.getMatrixFromQuaternion(orn, physicsClientId=client_id),
+            dtype=np.float32
+        ).reshape(3, 3)
 
-        world_dirs = (rot @ self.local_dirs.T).T  # (K, 3)
+        world_dirs = (rot @ self.local_dirs.T).T
 
-        # Small offset so rays don't start exactly inside the drone body
         ray_start_offset = 0.05
         ray_from = pos + ray_start_offset * world_dirs
         ray_to = pos + self.max_range * world_dirs
@@ -53,7 +64,7 @@ class RaySensor:
             hit_fraction = r[2]
             hit_position = np.array(r[3], dtype=np.float32)
 
-            if hit_body_uid == -1:
+            if hit_body_uid == -1 or hit_body_uid in ignore_body_ids:
                 dist = self.max_range
                 hit = 0.0
                 end_pt = ray_to[i]
@@ -66,7 +77,7 @@ class RaySensor:
             hits.append(hit)
 
             if visualize:
-                color = [1, 0, 0] if hit_body_uid != -1 else [0, 1, 0]
+                color = [1, 0, 0] if hit else [0, 1, 0]
                 p.addUserDebugLine(
                     ray_from[i],
                     end_pt,
@@ -75,14 +86,9 @@ class RaySensor:
                     physicsClientId=client_id
                 )
 
-        distances = np.array(distances, dtype=np.float32)
+        distances = np.array(distances, dtype=np.float32) / self.max_range
         hits = np.array(hits, dtype=np.float32)
 
-        # Normalize distance to [0, 1]
-        distances_norm = distances / self.max_range
-
-        # Two common options:
-        # 1) return only normalized distances
-        # 2) return distances + hit mask
-        obs = np.concatenate([distances_norm, hits], axis=0)
-        return obs
+        if return_hits:
+            return np.concatenate([distances, hits], axis=0)
+        return distances
