@@ -171,6 +171,7 @@ class base_aviary(BaseRLAviary):
 
         obs, info = super().reset(seed=seed, options=options)
 
+        self._create_arena_walls()
         self._draw_goal_marker()
 
         evader_pos = self._pos(0)
@@ -202,6 +203,84 @@ class base_aviary(BaseRLAviary):
     # ---------------------------------------------------------------------
     # Helpers
     # ---------------------------------------------------------------------
+
+    def _create_arena_walls(self):
+        # Remove previous walls if they exist
+        for wid in getattr(self, "wall_ids", []):
+            try:
+                p.removeBody(wid, physicsClientId=self.CLIENT)
+            except Exception:
+                pass
+        self.wall_ids = []
+
+        wall_thickness = 0.02
+        z_center = 0.5 * (self.arena_z_min + self.arena_z_max)
+        wall_height = 0.5 * (self.arena_z_max - self.arena_z_min)
+
+        rgba = [0.7, 0.7, 0.7, 0.15]
+
+        # +X wall
+        self.wall_ids.append(self._create_box(
+            half_extents=[wall_thickness, self.arena_xy, wall_height],
+            position=[ self.arena_xy + wall_thickness, 0.0, z_center],
+            rgba=rgba
+        ))
+
+        # -X wall
+        self.wall_ids.append(self._create_box(
+            half_extents=[wall_thickness, self.arena_xy, wall_height],
+            position=[-self.arena_xy - wall_thickness, 0.0, z_center],
+            rgba=rgba
+        ))
+
+        # +Y wall
+        self.wall_ids.append(self._create_box(
+            half_extents=[self.arena_xy, wall_thickness, wall_height],
+            position=[0.0,  self.arena_xy + wall_thickness, z_center],
+            rgba=rgba
+        ))
+
+        # -Y wall
+        self.wall_ids.append(self._create_box(
+            half_extents=[self.arena_xy, wall_thickness, wall_height],
+            position=[0.0, -self.arena_xy - wall_thickness, z_center],
+            rgba=rgba
+        ))
+
+        # Floor
+        self.wall_ids.append(self._create_box(
+            half_extents=[self.arena_xy, self.arena_xy, wall_thickness],
+            position=[0.0, 0.0, self.arena_z_min - wall_thickness],
+            rgba=[0.5, 0.5, 0.5, 0.1]
+        ))
+
+        # Ceiling (optional)
+        self.wall_ids.append(self._create_box(
+            half_extents=[self.arena_xy, self.arena_xy, wall_thickness],
+            position=[0.0, 0.0, self.arena_z_max + wall_thickness],
+            rgba=[0.5, 0.5, 0.5, 0.1]
+        ))
+
+    def _create_box(self, half_extents, position, rgba):
+        col_id = p.createCollisionShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            physicsClientId=self.CLIENT
+        )
+        vis_id = p.createVisualShape(
+            p.GEOM_BOX,
+            halfExtents=half_extents,
+            rgbaColor=rgba,
+            physicsClientId=self.CLIENT
+        )
+        body_id = p.createMultiBody(
+            baseMass=0.0,
+            baseCollisionShapeIndex=col_id,
+            baseVisualShapeIndex=vis_id,
+            basePosition=position,
+            physicsClientId=self.CLIENT
+        )
+        return body_id
 
     def _pos(self, drone_id: int) -> np.ndarray:
         return self._getDroneStateVector(drone_id)[0:3].copy()
