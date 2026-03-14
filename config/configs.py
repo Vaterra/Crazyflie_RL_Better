@@ -36,7 +36,7 @@ class EnvConfig:
     # Ray sensor parameters
     use_ray_sensor: bool = True
     ray_num_rays: int = 4
-    ray_max_range: float = 5.0
+    ray_max_range: float = 3.0
     ray_use_3d: bool = False
     ray_z_levels: list[float] = field(default_factory=lambda: [0.0])
     ray_include_hits: bool = True

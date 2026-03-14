@@ -10,6 +10,9 @@ from .candy_function import compute_evader_reward, compute_chaser_reward
 from config.configs import EnvConfig
 from utils.Raycast import RaySensor
 
+## Debug
+import psutil
+
 
 class base_aviary(BaseRLAviary):
     """
@@ -192,7 +195,9 @@ class base_aviary(BaseRLAviary):
     def step(self, action):
         joint_action = self._build_single_agent_action(action)
         obs, reward, terminated, truncated, info = super().step(joint_action)
-
+        #Debug
+        print(f"Available memory: {psutil.virtual_memory().available * 100 / psutil.virtual_memory().total:.2f}%")
+            
         if terminated or truncated:
             if info["evader_reached_goal"]:
                 self.termination_stats["goal"] += 1

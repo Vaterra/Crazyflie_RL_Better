@@ -10,13 +10,16 @@ from envs.candy_function import (
 )
 from AMSPB_training import ScriptedChaserPolicy, ScriptedEvaderPolicy
 
+## Debug
+import psutil
+
 # ============================================================================
 # Default model paths
 # Change these to your actual final saved models
 # ============================================================================
 
-FINAL_EVADER_MODEL = "./models/version_4/evader_seed_42_2026-03-13_13_06"
-FINAL_CHASER_MODEL = "./models/version_4/chaser_seed_43_2026-03-13_13-08"
+FINAL_EVADER_MODEL = "./models/version_4/evader_seed_44_2026-03-13_13-17"
+FINAL_CHASER_MODEL = "./models/version_4/chaser_seed_44_2026-03-13_13-19"
 
 N_EPISODES = 10
 MAX_STEPS = 2000
@@ -149,6 +152,8 @@ def run_evaluation(
         chaser_return = 0.0
 
         while not done and ep_len < max_steps:
+            #Debug
+            #print(f"Available memory: {psutil.virtual_memory().available * 100 / psutil.virtual_memory().total:.2f}%")
             # Save reward inputs exactly like env._computeReward() needs them
             prev_goal_distance = env.prev_goal_dist
 
