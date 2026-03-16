@@ -14,6 +14,9 @@ from utils.vec_env_builder import build_vec_env
 from config.configs import EnvConfig
 from config.train_config import TrainConfig, timestamp
 
+import gc
+import torch
+
 
 # =============================================================================
 # Training helpers
@@ -57,41 +60,50 @@ def train_from(
     tb_log = os.path.join(training.tb_root, agent_role, training.Version)
     tb_name = f"{agent_role}_seed_{seed_input}"
 
-    if init_policy_path is None:
-        model = PPO(
-            "MlpPolicy",
-            env,
-            verbose=training.verbose,
-            learning_rate=training.learning_rate,
-            n_steps=training.n_steps,
-            batch_size=training.batch_size,
-            gamma=training.gamma,
-            device=training.device,
-            tensorboard_log=tb_log,
+    try:
+        if init_policy_path is None:
+            model = PPO(
+                "MlpPolicy",
+                env,
+                verbose=training.verbose,
+                learning_rate=training.learning_rate,
+                n_steps=training.n_steps,
+                batch_size=training.batch_size,
+                gamma=training.gamma,
+                device=training.device,
+                tensorboard_log=tb_log,
+            )
+            reset_num_timesteps = True
+        else:
+            model = PPO.load(
+                init_policy_path,
+                env=env,
+                device=training.device,
+            )
+            model.tensorboard_log = tb_log
+            reset_num_timesteps = False
+
+        model.learn(
+            total_timesteps=training.total_timesteps,
+            tb_log_name=tb_name,
+            reset_num_timesteps=reset_num_timesteps,
         )
-        reset_num_timesteps = True
-    else:
-        model = PPO.load(
-            init_policy_path,
-            env=env,
-            device=training.device,
-        )
-        model.tensorboard_log = tb_log
-        reset_num_timesteps = False
 
-    model.learn(
-        total_timesteps=training.total_timesteps,
-        tb_log_name=tb_name,
-        reset_num_timesteps=reset_num_timesteps,
-    )
+        run_stamp = timestamp()
+        save_name = f"{agent_role}_seed_{seed_input}_{run_stamp}"
+        save_path = save_model(model, training.save_dir, save_name)
 
+    finally:
+        if "model" in locals():
+            del model
+        if "env" in locals():
+            env.close()
+            del env
 
-    #Saving
-    run_stamp = timestamp()
-    save_name = f"{agent_role}_seed_{seed_input}_{run_stamp}"
-    save_path = save_model(model, training.save_dir, save_name)
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-    env.close()
     return save_path
 
 # =============================================================================
@@ -173,7 +185,6 @@ def AMSPB(
             kind="learned",
         )
     )
-
     prev_evader_path = pi_E_0_path
     prev_chaser_path = pi_P_0_path
 

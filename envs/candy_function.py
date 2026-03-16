@@ -4,10 +4,13 @@ from dataclasses import dataclass
 
 @dataclass
 class RewardConfig:
-    evader_goal_progress_weight: float = 10.0
-    evader_escape_weight: float = 0.5
-    chaser_capture_progress_weight: float = 5.0
 
+    # State rewards
+    evader_goal_progress_weight: float = 10.0
+    evader_escape_weight: float = -0.5
+    chaser_capture_progress_weight: float = 5.0
+    
+    #Terminal Rewards
     evader_goal_bonus: float = 100.0
     evader_captured_penalty: float = -100.0
     chaser_capture_bonus: float = 100.0
@@ -19,6 +22,7 @@ class RewardConfig:
     chaser_out_penalty: float = -50.0
     evader_bonus_against_chaser_out: float = 20.0
 
+    # "Constant"
     safe_rad: float = 1.0
 
 
@@ -47,31 +51,34 @@ def compute_evader_reward(
 
     if info["evader_out"]:
         reward += cfg.evader_out_penalty
-
-    if info["chaser_out"]:
-        reward += cfg.evader_bonus_against_chaser_out
-
+    
+    # if info["chaser_out"]:
+    #     reward += cfg.evader_bonus_against_chaser_out
+    
     return float(reward)
 
 
 def compute_chaser_reward(
     E_2_C_distance: float,
+    prev_E_2_C_distance: float | None,
     info: dict,
     cfg: RewardConfig,
 ) -> float:
     reward = 0.0
 
-    if E_2_C_distance < cfg.safe_rad:
-        reward += cfg.chaser_capture_progress_weight * (cfg.safe_rad - E_2_C_distance)
-        
+    if prev_E_2_C_distance is not None:
+        reward += cfg.chaser_capture_progress_weight * (
+            prev_E_2_C_distance - E_2_C_distance
+        )
+
     if info["captured"]:
         reward += cfg.chaser_capture_bonus
 
     if info["evader_reached_goal"]:
         reward += cfg.chaser_goal_fail_penalty
 
-    if info["evader_out"]:
-        reward += cfg.chaser_out_bonus_against_evader
+    # if info["evader_out"]:
+    #     reward += cfg.chaser_out_bonus_against_evader
 
     if info["chaser_out"]:
         reward += cfg.chaser_out_penalty

@@ -2,7 +2,7 @@ import numpy as np
 import pybullet as p
 
 class RaySensor:
-    def __init__(self, num_rays=32, max_range=5.0, use_3d=False, z_levels=None):
+    def __init__(self, num_rays=4, max_range=3.0, use_3d=False, z_levels=None):
         self.num_rays = num_rays
         self.max_range = max_range
         self.use_3d = use_3d

@@ -18,8 +18,8 @@ import psutil
 # Change these to your actual final saved models
 # ============================================================================
 
-FINAL_EVADER_MODEL = "./models/version_4/evader_seed_44_2026-03-13_13-17"
-FINAL_CHASER_MODEL = "./models/version_4/chaser_seed_44_2026-03-13_13-19"
+FINAL_EVADER_MODEL = "./models/version_5/evader_seed_50_2026-03-16_15-34"
+FINAL_CHASER_MODEL = "./models/version_5/chaser_seed_46_2026-03-16_14-26"
 
 N_EPISODES = 10
 MAX_STEPS = 2000
@@ -92,7 +92,7 @@ def run_evaluation(
     opponent_policy,
     n_episodes: int = N_EPISODES,
     max_steps: int = MAX_STEPS,
-    gui: bool = True,
+    gui: bool = False,
     record: bool = False,
     seed_offset: int = 0,
     reward_config: RewardConfig | None = None,
@@ -118,7 +118,7 @@ def run_evaluation(
 
     env = base_aviary(
         controlled_agent=controlled_agent,
-        gui = True,
+        gui = gui,
     )
     env.set_opponent_policy(opponent_policy)
 
@@ -151,19 +151,16 @@ def run_evaluation(
         evader_return = 0.0
         chaser_return = 0.0
 
-        while not done and ep_len < max_steps:
-            #Debug
-            #print(f"Available memory: {psutil.virtual_memory().available * 100 / psutil.virtual_memory().total:.2f}%")
-            # Save reward inputs exactly like env._computeReward() needs them
-            prev_goal_distance = env.prev_goal_dist
+        prev_goal_distance = env.prev_goal_dist
+        prev_capture_dist = env.prev_capture_dist
 
+        while not done and ep_len < max_steps:
             action, _ = learner.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
 
             ep_reward += float(reward)
             ep_len += 1
 
-            # Post-step state, matching env._computeReward()
             evader_pos = env._pos(0)
             chaser_pos = env._pos(1)
 
@@ -181,6 +178,7 @@ def run_evaluation(
 
             chaser_step_reward = compute_chaser_reward(
                 E_2_C_distance=capture_dist,
+                prev_E_2_C_distance=prev_capture_dist,
                 info=info,
                 cfg=env.reward_config,
             )
@@ -188,8 +186,8 @@ def run_evaluation(
             evader_return += evader_step_reward
             chaser_return += chaser_step_reward
 
-            if gui:
-                time.sleep(env.CTRL_TIMESTEP)
+            prev_goal_distance = goal_dist
+            prev_capture_dist = capture_dist
 
             done = terminated or truncated
 
@@ -286,7 +284,7 @@ def evaluate_final_models_head_to_head(
     chaser_model_path: str,
     n_episodes: int = N_EPISODES,
     max_steps: int = MAX_STEPS,
-    gui: bool = True,
+    gui: bool = False,
     record: bool = False,
     reward_config: RewardConfig | None = None,
     device: str = "cpu",

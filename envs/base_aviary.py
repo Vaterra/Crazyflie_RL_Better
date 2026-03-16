@@ -62,6 +62,9 @@ class base_aviary(BaseRLAviary):
 
         self.reward_config = self.config.reward_config
 
+        #Init walls
+        self.wall_ids = []
+
         self.termination_stats = {
             "goal": 0,
             "captured": 0,
@@ -91,7 +94,7 @@ class base_aviary(BaseRLAviary):
         if gui:
             self.draw_goal = True
             if self.ray_sensor is not None:
-                self.ray_visualize = True
+                self.ray_visualize = False
             
         super().__init__(
             drone_model=self.config.drone_model,
@@ -104,6 +107,7 @@ class base_aviary(BaseRLAviary):
             obs=self.config.obs,
             act=self.config.act,
         )
+        self._create_arena_walls()
 
         if self.config.act != ActionType.VEL:
             raise ValueError("This environment currently assumes ActionType.VEL")
@@ -181,7 +185,7 @@ class base_aviary(BaseRLAviary):
 
         obs, info = super().reset(seed=seed, options=options)
 
-        self._create_arena_walls()
+        #self._create_arena_walls()
         self._draw_goal_marker()
 
         evader_pos = self._pos(0)
@@ -196,7 +200,7 @@ class base_aviary(BaseRLAviary):
         joint_action = self._build_single_agent_action(action)
         obs, reward, terminated, truncated, info = super().step(joint_action)
         #Debug
-        print(f"Available memory: {psutil.virtual_memory().available * 100 / psutil.virtual_memory().total:.2f}%")
+        #print(f"Available memory: {psutil.virtual_memory().available * 100 / psutil.virtual_memory().total:.2f}%")
             
         if terminated or truncated:
             if info["evader_reached_goal"]:
@@ -310,10 +314,6 @@ class base_aviary(BaseRLAviary):
         ).astype(np.float32)
 
         return ray_obs
-
-        # Only keep normalized distances
-        n = len(self.ray_sensor.local_dirs)
-        return ray_obs[:n]
 
     def _pos(self, drone_id: int) -> np.ndarray:
         return self._getDroneStateVector(drone_id)[0:3].copy()
@@ -436,28 +436,31 @@ class base_aviary(BaseRLAviary):
         goal_dist = float(np.linalg.norm(self.goal_pos - evader_pos))
         capture_dist = info["distance"]
 
-        self.prev_goal_dist = goal_dist
-        self.prev_capture_dist = capture_dist
+        prev_goal_dist = self.prev_goal_dist
+        prev_capture_dist = self.prev_capture_dist
 
         if self.controlled_agent == self.AGENT_EVADER:
-            reward_evader = compute_evader_reward(
+            reward = compute_evader_reward(
                 goal_dist=goal_dist,
-                prev_goal_dist=self.prev_goal_dist,
+                prev_goal_dist=prev_goal_dist,
                 Evader_pos=evader_pos,
                 Chaser_pos=chaser_pos,
                 info=info,
                 cfg=self.reward_config,
             )
-            return reward_evader
         elif self.controlled_agent == self.AGENT_CHASER:
-            reward_chaser = compute_chaser_reward(
+            reward = compute_chaser_reward(
                 E_2_C_distance=capture_dist,
+                prev_E_2_C_distance=prev_capture_dist,  # if your function supports it
                 info=info,
                 cfg=self.reward_config,
             )
-            return reward_chaser
+        else:
+            raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")
 
-        raise ValueError(f"Unknown controlled_agent={self.controlled_agent}")
+        self.prev_goal_dist = goal_dist
+        self.prev_capture_dist = capture_dist
+        return reward
 
     # ---------------------------------------------------------------------
     # Sampling / visualization
